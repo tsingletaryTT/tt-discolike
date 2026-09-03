@@ -44,3 +44,34 @@ def render_unit_file(app: AppManifest, use_gozer: bool) -> str:
         "[Install]\n"
         "WantedBy=default.target\n"
     )
+
+
+def write_unit_file(app: AppManifest) -> Path:
+    UNIT_DIR.mkdir(parents=True, exist_ok=True)
+    path = unit_file_path(app.name)
+    path.write_text(render_unit_file(app, use_gozer=gozer_available()))
+    return path
+
+
+def systemctl(*args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["systemctl", "--user", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def start_app(app: AppManifest) -> subprocess.CompletedProcess:
+    write_unit_file(app)
+    systemctl("daemon-reload")
+    return systemctl("start", unit_name(app.name))
+
+
+def stop_app(app_name: str) -> subprocess.CompletedProcess:
+    return systemctl("stop", unit_name(app_name))
+
+
+def app_status(app_name: str) -> str:
+    result = systemctl("is-active", unit_name(app_name))
+    return result.stdout.strip() or "unknown"
