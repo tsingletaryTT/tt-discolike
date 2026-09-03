@@ -1,0 +1,27 @@
+<!-- disco/templates/_catalog.html -->
+<table>
+  <thead>
+    <tr><th>Name</th><th>Description</th><th>Status</th><th>Actions</th></tr>
+  </thead>
+  <tbody>
+    {% for a in apps %}
+    <tr>
+      {% if a.broken %}
+      <td>{{ a.name }}</td>
+      <td class="broken" colspan="3">broken manifest: {{ a.error }}</td>
+      {% else %}
+      <td>{{ a.name }}</td>
+      <td>{{ a.description }}</td>
+      <td>{{ a.status }}</td>
+      <td>
+        <button hx-post="/apps/{{ a.name }}/start" hx-target="#catalog" hx-swap="innerHTML">Start</button>
+        <button hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
+        {% if a.status == "active" %}
+        <a href="http://localhost:{{ a.port }}" target="_blank">Open</a>
+        {% endif %}
+      </td>
+      {% endif %}
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>

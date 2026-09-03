@@ -1,0 +1,21 @@
+<!-- disco/templates/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>tt-disco</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    body { font-family: sans-serif; margin: 2rem; }
+    table { border-collapse: collapse; width: 100%; }
+    td, th { border: 1px solid #ccc; padding: 0.5rem; text-align: left; }
+    .broken { color: #a00; }
+  </style>
+</head>
+<body>
+  <h1>tt-disco</h1>
+  <div id="catalog">
+    {% include "_catalog.html" %}
+  </div>
+</body>
+</html>
