@@ -80,3 +80,50 @@ def test_parse_manifest_non_integer_port(tmp_path):
 
     with pytest.raises(ManifestError, match="port must be an integer"):
         parse_manifest(manifest_path)
+
+
+from disco.manifest import BrokenManifest, discover_apps, find_manifests
+
+
+def test_find_manifests_one_level_deep(tmp_path):
+    write_manifest(
+        tmp_path,
+        "vjepa2",
+        "name: vjepa2\ndescription: d\nport: 1\nlaunch: run\n",
+    )
+    write_manifest(
+        tmp_path,
+        "animatediff",
+        "name: animatediff\ndescription: d\nport: 2\nlaunch: run\n",
+    )
+    # a manifest nested too deep should not be found
+    deep_dir = tmp_path / "other" / "nested" / ".disco"
+    deep_dir.mkdir(parents=True)
+    (deep_dir / "app.yaml").write_text("name: nested\ndescription: d\nport: 3\nlaunch: run\n")
+
+    found = find_manifests(tmp_path)
+
+    assert found == sorted(
+        [
+            tmp_path / "animatediff" / ".disco" / "app.yaml",
+            tmp_path / "vjepa2" / ".disco" / "app.yaml",
+        ]
+    )
+
+
+def test_discover_apps_mixes_valid_and_broken(tmp_path):
+    write_manifest(
+        tmp_path,
+        "vjepa2",
+        "name: vjepa2\ndescription: d\nport: 1\nlaunch: run\n",
+    )
+    write_manifest(tmp_path, "broken", "name: broken\n")
+
+    results = discover_apps(tmp_path)
+
+    valid = [r for r in results if not isinstance(r, BrokenManifest)]
+    broken = [r for r in results if isinstance(r, BrokenManifest)]
+    assert len(valid) == 1
+    assert valid[0].name == "vjepa2"
+    assert len(broken) == 1
+    assert "missing required field" in broken[0].error

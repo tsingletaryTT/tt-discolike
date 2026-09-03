@@ -60,3 +60,23 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
         manifest_path=manifest_path,
         chips=chips,
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class BrokenManifest:
+    manifest_path: Path
+    error: str
+
+
+def find_manifests(root: Path) -> list[Path]:
+    return sorted(root.glob("*/.disco/app.yaml"))
+
+
+def discover_apps(root: Path) -> list[AppManifest | BrokenManifest]:
+    results: list[AppManifest | BrokenManifest] = []
+    for manifest_path in find_manifests(root):
+        try:
+            results.append(parse_manifest(manifest_path))
+        except ManifestError as exc:
+            results.append(BrokenManifest(manifest_path=manifest_path, error=str(exc)))
+    return results
