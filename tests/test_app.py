@@ -1,9 +1,16 @@
+import subprocess
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 import disco.app as app_mod
 from disco.manifest import AppManifest, BrokenManifest
+
+
+def completed(returncode=0, stderr="", stdout=""):
+    return subprocess.CompletedProcess(
+        args=[], returncode=returncode, stdout=stdout, stderr=stderr
+    )
 
 
 def make_app(name="vjepa2", chips=None) -> AppManifest:
@@ -52,7 +59,12 @@ def test_start_endpoint_calls_units_start_app(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
     monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
     calls = []
-    monkeypatch.setattr(app_mod.units, "start_app", lambda app: calls.append(app))
+
+    def fake_start(app):
+        calls.append(app)
+        return completed(returncode=0)
+
+    monkeypatch.setattr(app_mod.units, "start_app", fake_start)
 
     client = TestClient(app_mod.create_app())
     response = client.post("/apps/vjepa2/start")
@@ -66,10 +78,50 @@ def test_stop_endpoint_calls_units_stop_app(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
     monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
     calls = []
-    monkeypatch.setattr(app_mod.units, "stop_app", lambda name: calls.append(name))
+
+    def fake_stop(name):
+        calls.append(name)
+        return completed(returncode=0)
+
+    monkeypatch.setattr(app_mod.units, "stop_app", fake_stop)
 
     client = TestClient(app_mod.create_app())
     response = client.post("/apps/vjepa2/stop")
 
     assert response.status_code == 200
     assert calls == ["vjepa2"]
+
+
+def test_start_endpoint_shows_error_on_failure(monkeypatch):
+    target = make_app()
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(
+        app_mod.units,
+        "start_app",
+        lambda app: completed(returncode=1, stderr="Failed to start disco-vjepa2.service: bad unit"),
+    )
+
+    client = TestClient(app_mod.create_app())
+    response = client.post("/apps/vjepa2/start")
+
+    assert response.status_code == 200
+    assert "vjepa2" in response.text
+    assert "Failed to start disco-vjepa2.service: bad unit" in response.text
+
+
+def test_stop_endpoint_shows_error_on_failure(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(
+        app_mod.units,
+        "stop_app",
+        lambda name: completed(returncode=1, stderr="Failed to stop disco-vjepa2.service: unit not loaded"),
+    )
+
+    client = TestClient(app_mod.create_app())
+    response = client.post("/apps/vjepa2/stop")
+
+    assert response.status_code == 200
+    assert "vjepa2" in response.text
+    assert "Failed to stop disco-vjepa2.service: unit not loaded" in response.text

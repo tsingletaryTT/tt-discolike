@@ -17,6 +17,24 @@ def scan_root() -> Path:
     return Path(os.environ.get("DISCO_SCAN_ROOT", str(Path.home() / "code")))
 
 
+def _mark_row_failed(rows: list[dict], name: str, stderr: str) -> None:
+    """Mutate the row for `name` in-place to show a start/stop command failure.
+
+    Reuses the "broken" row rendering path (the same one used for a
+    BrokenManifest) so the catalog table surfaces the immediate command
+    failure instead of silently leaving the row's prior status displayed.
+    """
+    message = stderr.strip() or "command failed with no output"
+    for row in rows:
+        if row.get("name") == name:
+            row["broken"] = True
+            row["error"] = f"command failed: {message}"
+            return
+    # App disappeared from discovery between the request and the response
+    # (e.g. manifest removed mid-flight) -- still surface the failure.
+    rows.append({"name": name, "broken": True, "error": f"command failed: {message}"})
+
+
 def create_app() -> FastAPI:
     app = FastAPI()
     templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
@@ -58,18 +76,28 @@ def create_app() -> FastAPI:
 
     @app.post("/apps/{name}/start", response_class=HTMLResponse)
     def start(request: Request, name: str) -> HTMLResponse:
+        rows = catalog_rows()
         target = find_app(name)
         if target is not None:
-            units.start_app(target)
+            result = units.start_app(target)
+            if result.returncode != 0:
+                _mark_row_failed(rows, name, result.stderr)
+            else:
+                rows = catalog_rows()
         return templates.TemplateResponse(
-            request, "_catalog.html", {"apps": catalog_rows()}
+            request, "_catalog.html", {"apps": rows}
         )
 
     @app.post("/apps/{name}/stop", response_class=HTMLResponse)
     def stop(request: Request, name: str) -> HTMLResponse:
-        units.stop_app(name)
+        rows = catalog_rows()
+        result = units.stop_app(name)
+        if result.returncode != 0:
+            _mark_row_failed(rows, name, result.stderr)
+        else:
+            rows = catalog_rows()
         return templates.TemplateResponse(
-            request, "_catalog.html", {"apps": catalog_rows()}
+            request, "_catalog.html", {"apps": rows}
         )
 
     return app
