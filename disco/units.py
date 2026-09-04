@@ -21,14 +21,32 @@ def gozer_available() -> bool:
     return shutil.which("gozer") is not None
 
 
+def _resolve_launch(app: AppManifest) -> str:
+    """Resolve a relative launch command's executable against source_dir.
+
+    systemd's ExecStart= requires its first token to be either an absolute
+    path or a bare filename with no slashes -- it rejects a relative path
+    containing a slash outright. Manifests commonly declare launch commands
+    like ".venv/bin/python app.py" (relative to the app's source_dir), which
+    is exactly the form systemd can't load. Resolve that first token to an
+    absolute path so the rendered unit is always loadable, regardless of
+    whether gozer ends up wrapping it.
+    """
+    head, sep, rest = app.launch.partition(" ")
+    if "/" in head and not head.startswith("/"):
+        head = str(app.source_dir / head)
+    return f"{head}{sep}{rest}" if sep else head
+
+
 def build_launch_command(app: AppManifest, use_gozer: bool) -> str:
+    launch = _resolve_launch(app)
     if use_gozer and app.chips is not None:
         gozer_bin = shutil.which("gozer") or "gozer"
         return (
             f'{gozer_bin} run --chips {app.chips} --who "disco:{app.name}" '
-            f'--reason "gradio demo" -- {app.launch}'
+            f'--reason "gradio demo" -- {launch}'
         )
-    return app.launch
+    return launch
 
 
 def render_unit_file(app: AppManifest, use_gozer: bool) -> str:

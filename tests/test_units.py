@@ -23,21 +23,24 @@ def test_unit_name():
 
 def test_build_launch_command_without_gozer():
     app = make_app(chips=1)
-    assert build_launch_command(app, use_gozer=False) == ".venv/bin/python app.py"
+    expected = str(app.source_dir) + "/.venv/bin/python app.py"
+    assert build_launch_command(app, use_gozer=False) == expected
 
 
 def test_build_launch_command_without_chips_declared():
     app = make_app(chips=None)
-    assert build_launch_command(app, use_gozer=True) == ".venv/bin/python app.py"
+    expected = str(app.source_dir) + "/.venv/bin/python app.py"
+    assert build_launch_command(app, use_gozer=True) == expected
 
 
 def test_build_launch_command_with_gozer_and_chips(monkeypatch):
     monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/home/ttuser/.local/bin/gozer")
     app = make_app(chips=1)
     result = build_launch_command(app, use_gozer=True)
+    resolved_launch = str(app.source_dir) + "/.venv/bin/python app.py"
     assert result == (
         '/home/ttuser/.local/bin/gozer run --chips 1 --who "disco:vjepa2" '
-        '--reason "gradio demo" -- .venv/bin/python app.py'
+        f'--reason "gradio demo" -- {resolved_launch}'
     )
 
 
@@ -59,6 +62,62 @@ def test_render_unit_file_contains_working_directory_and_exec_start(monkeypatch)
     assert "[Install]" in content
 
 
+import shutil as _shutil
+
+import pytest
+
+
+@pytest.mark.skipif(
+    _shutil.which("systemd-analyze") is None,
+    reason="systemd-analyze not available on this system",
+)
+def test_render_unit_file_is_loadable_by_systemd_without_gozer(tmp_path, monkeypatch):
+    """Regression test for the no-gozer relative-path ExecStart bug.
+
+    systemd-analyze verify rejects a unit whose ExecStart= first token is a
+    relative path containing a slash. This renders a real unit file (via the
+    same render_unit_file() the app uses) with gozer unavailable, and checks
+    that systemd itself considers it loadable.
+    """
+    monkeypatch.setattr(units_mod, "gozer_available", lambda: False)
+
+    # systemd-analyze verify also checks that the ExecStart= executable
+    # actually exists and is executable -- give it a real one, rooted in a
+    # real source_dir, so the only thing under test is path *resolution*
+    # (relative-with-slash -> absolute), not executable presence.
+    source_dir = tmp_path / "tt-vjepa2"
+    venv_bin = source_dir / ".venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    fake_python = venv_bin / "python"
+    fake_python.write_text("#!/bin/sh\nexit 0\n")
+    fake_python.chmod(0o755)
+
+    app = AppManifest(
+        name="vjepa2",
+        description="V-JEPA2 demo",
+        port=7860,
+        launch=".venv/bin/python app.py",
+        source_dir=source_dir,
+        manifest_path=source_dir / ".disco" / "app.yaml",
+        chips=None,
+    )
+    content = render_unit_file(app, use_gozer=False)
+
+    unit_path = tmp_path / "disco-vjepa2.service"
+    unit_path.write_text(content)
+
+    result = units_mod.subprocess.run(
+        ["systemd-analyze", "verify", str(unit_path)],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, (
+        f"systemd-analyze verify failed:\nstdout={result.stdout}\nstderr={result.stderr}\n"
+        f"unit content:\n{content}"
+    )
+
+
 import disco.units as units_mod
 from disco.units import app_status, start_app, stop_app, write_unit_file
 
@@ -77,7 +136,8 @@ def test_write_unit_file_writes_rendered_content(tmp_path, monkeypatch):
     path = write_unit_file(app)
 
     assert path == tmp_path / "disco-vjepa2.service"
-    assert "ExecStart=.venv/bin/python app.py" in path.read_text()
+    expected_exec_start = "ExecStart=" + str(app.source_dir) + "/.venv/bin/python app.py"
+    assert expected_exec_start in path.read_text()
 
 
 def test_start_app_writes_unit_reloads_and_starts(tmp_path, monkeypatch):
