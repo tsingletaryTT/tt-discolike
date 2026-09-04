@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 from pathlib import Path
 
 import pytest
 
-from disco.manifest import AppManifest, ManifestError, parse_manifest
+from discolike.manifest import AppManifest, ManifestError, parse_manifest
 
 
 def write_manifest(tmp_path: Path, name: str, content: str) -> Path:
@@ -104,7 +106,7 @@ def test_parse_manifest_non_integer_port(tmp_path):
         parse_manifest(manifest_path)
 
 
-from disco.manifest import BrokenManifest, discover_apps, find_manifests
+from discolike.manifest import BrokenManifest, discover_apps, find_manifests
 
 
 def test_find_manifests_one_level_deep(tmp_path):

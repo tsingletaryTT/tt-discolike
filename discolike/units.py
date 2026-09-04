@@ -1,16 +1,18 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 from __future__ import annotations
 
 import shutil
 import subprocess
 from pathlib import Path
 
-from disco.manifest import AppManifest
+from discolike.manifest import AppManifest
 
 UNIT_DIR = Path.home() / ".config" / "systemd" / "user"
 
 
 def unit_name(app_name: str) -> str:
-    return f"disco-{app_name}.service"
+    return f"discolike-{app_name}.service"
 
 
 def unit_file_path(app_name: str) -> Path:
@@ -43,7 +45,7 @@ def build_launch_command(app: AppManifest, use_gozer: bool) -> str:
     if use_gozer and app.chips is not None:
         gozer_bin = shutil.which("gozer") or "gozer"
         return (
-            f'{gozer_bin} run --chips {app.chips} --who "disco:{app.name}" '
+            f'{gozer_bin} run --chips {app.chips} --who "discolike:{app.name}" '
             f'--reason "gradio demo" -- {launch}'
         )
     return launch
@@ -53,7 +55,7 @@ def render_unit_file(app: AppManifest, use_gozer: bool) -> str:
     exec_start = build_launch_command(app, use_gozer)
     return (
         "[Unit]\n"
-        f"Description=tt-disco managed app: {app.name}\n"
+        f"Description=tt-discolike managed app: {app.name}\n"
         "\n"
         "[Service]\n"
         f"WorkingDirectory={app.source_dir}\n"

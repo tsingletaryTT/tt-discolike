@@ -1,10 +1,12 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 import subprocess
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-import disco.app as app_mod
-from disco.manifest import AppManifest, BrokenManifest
+import discolike.app as app_mod
+from discolike.manifest import AppManifest, BrokenManifest
 
 
 def completed(returncode=0, stderr="", stdout=""):
@@ -99,7 +101,7 @@ def test_start_endpoint_shows_error_on_failure(monkeypatch):
     monkeypatch.setattr(
         app_mod.units,
         "start_app",
-        lambda app: completed(returncode=1, stderr="Failed to start disco-vjepa2.service: bad unit"),
+        lambda app: completed(returncode=1, stderr="Failed to start discolike-vjepa2.service: bad unit"),
     )
 
     client = TestClient(app_mod.create_app())
@@ -107,7 +109,7 @@ def test_start_endpoint_shows_error_on_failure(monkeypatch):
 
     assert response.status_code == 200
     assert "vjepa2" in response.text
-    assert "Failed to start disco-vjepa2.service: bad unit" in response.text
+    assert "Failed to start discolike-vjepa2.service: bad unit" in response.text
 
 
 def test_stop_endpoint_shows_error_on_failure(monkeypatch):
@@ -116,7 +118,7 @@ def test_stop_endpoint_shows_error_on_failure(monkeypatch):
     monkeypatch.setattr(
         app_mod.units,
         "stop_app",
-        lambda name: completed(returncode=1, stderr="Failed to stop disco-vjepa2.service: unit not loaded"),
+        lambda name: completed(returncode=1, stderr="Failed to stop discolike-vjepa2.service: unit not loaded"),
     )
 
     client = TestClient(app_mod.create_app())
@@ -124,4 +126,4 @@ def test_stop_endpoint_shows_error_on_failure(monkeypatch):
 
     assert response.status_code == 200
     assert "vjepa2" in response.text
-    assert "Failed to stop disco-vjepa2.service: unit not loaded" in response.text
+    assert "Failed to stop discolike-vjepa2.service: unit not loaded" in response.text

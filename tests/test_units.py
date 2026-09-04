@@ -1,8 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 from pathlib import Path
 
-from disco.manifest import AppManifest
-from disco.units import build_launch_command, render_unit_file, unit_name
-import disco.units as units_mod
+from discolike.manifest import AppManifest
+from discolike.units import build_launch_command, render_unit_file, unit_name
+import discolike.units as units_mod
 
 
 def make_app(chips=None) -> AppManifest:
@@ -18,7 +20,7 @@ def make_app(chips=None) -> AppManifest:
 
 
 def test_unit_name():
-    assert unit_name("vjepa2") == "disco-vjepa2.service"
+    assert unit_name("vjepa2") == "discolike-vjepa2.service"
 
 
 def test_build_launch_command_without_gozer():
@@ -39,7 +41,7 @@ def test_build_launch_command_with_gozer_and_chips(monkeypatch):
     result = build_launch_command(app, use_gozer=True)
     resolved_launch = str(app.source_dir) + "/.venv/bin/python app.py"
     assert result == (
-        '/home/ttuser/.local/bin/gozer run --chips 1 --who "disco:vjepa2" '
+        '/home/ttuser/.local/bin/gozer run --chips 1 --who "discolike:vjepa2" '
         f'--reason "gradio demo" -- {resolved_launch}'
     )
 
@@ -56,7 +58,7 @@ def test_render_unit_file_contains_working_directory_and_exec_start(monkeypatch)
     app = make_app(chips=1)
     content = render_unit_file(app, use_gozer=True)
     assert "WorkingDirectory=/home/ttuser/code/tt-vjepa2" in content
-    assert 'ExecStart=/home/ttuser/.local/bin/gozer run --chips 1 --who "disco:vjepa2"' in content
+    assert 'ExecStart=/home/ttuser/.local/bin/gozer run --chips 1 --who "discolike:vjepa2"' in content
     assert "[Unit]" in content
     assert "[Service]" in content
     assert "[Install]" in content
@@ -103,7 +105,7 @@ def test_render_unit_file_is_loadable_by_systemd_without_gozer(tmp_path, monkeyp
     )
     content = render_unit_file(app, use_gozer=False)
 
-    unit_path = tmp_path / "disco-vjepa2.service"
+    unit_path = tmp_path / "discolike-vjepa2.service"
     unit_path.write_text(content)
 
     result = units_mod.subprocess.run(
@@ -118,8 +120,8 @@ def test_render_unit_file_is_loadable_by_systemd_without_gozer(tmp_path, monkeyp
     )
 
 
-import disco.units as units_mod
-from disco.units import app_status, start_app, stop_app, write_unit_file
+import discolike.units as units_mod
+from discolike.units import app_status, start_app, stop_app, write_unit_file
 
 
 class FakeCompletedProcess:
@@ -135,7 +137,7 @@ def test_write_unit_file_writes_rendered_content(tmp_path, monkeypatch):
 
     path = write_unit_file(app)
 
-    assert path == tmp_path / "disco-vjepa2.service"
+    assert path == tmp_path / "discolike-vjepa2.service"
     expected_exec_start = "ExecStart=" + str(app.source_dir) + "/.venv/bin/python app.py"
     assert expected_exec_start in path.read_text()
 
@@ -153,10 +155,10 @@ def test_start_app_writes_unit_reloads_and_starts(tmp_path, monkeypatch):
 
     start_app(make_app())
 
-    assert (tmp_path / "disco-vjepa2.service").exists()
+    assert (tmp_path / "discolike-vjepa2.service").exists()
     assert calls == [
         ["systemctl", "--user", "daemon-reload"],
-        ["systemctl", "--user", "start", "disco-vjepa2.service"],
+        ["systemctl", "--user", "start", "discolike-vjepa2.service"],
     ]
 
 
@@ -171,7 +173,7 @@ def test_stop_app_calls_systemctl_stop(monkeypatch):
 
     stop_app("vjepa2")
 
-    assert calls == [["systemctl", "--user", "stop", "disco-vjepa2.service"]]
+    assert calls == [["systemctl", "--user", "stop", "discolike-vjepa2.service"]]
 
 
 def test_app_status_returns_stripped_stdout(monkeypatch):

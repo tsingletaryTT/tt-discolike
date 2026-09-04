@@ -1,2 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 def test_import_package():
-    import disco  # noqa: F401
+    import discolike  # noqa: F401

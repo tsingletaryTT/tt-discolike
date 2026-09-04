@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 from __future__ import annotations
 
 import os
@@ -7,14 +9,14 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from disco import units
-from disco.manifest import AppManifest, BrokenManifest, discover_apps
+from discolike import units
+from discolike.manifest import AppManifest, BrokenManifest, discover_apps
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 
 
 def scan_root() -> Path:
-    return Path(os.environ.get("DISCO_SCAN_ROOT", str(Path.home() / "code")))
+    return Path(os.environ.get("DISCOLIKE_SCAN_ROOT", str(Path.home() / "code")))
 
 
 def _mark_row_failed(rows: list[dict], name: str, stderr: str) -> None:

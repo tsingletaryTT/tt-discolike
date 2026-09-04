@@ -1,4 +1,4 @@
-# tt-disco
+# tt-discolike
 
 Local catalog and launcher for gradio demo apps on scarce Tenstorrent
 hardware. Original prompt: novel model demos built as gradio apps
@@ -11,7 +11,7 @@ Docker-Swarm-only, and that conflicts head-on with how this hardware
 actually gets used — `gozer` (the chip-leasing tool) tracks leases by host
 PID, `/dev/tenstorrent/*` passthrough into Swarm services means
 `--privileged` or fragile custom cgroup rules, and tt-metal wheels are
-tightly coupled to the host kernel driver version. tt-disco borrows Disco's
+tightly coupled to the host kernel driver version. tt-discolike borrows Disco's
 UX idea (a catalog of apps you can bring up/down) without the container
 requirement.
 
@@ -43,7 +43,7 @@ requirement.
   the manifest's declared `port`, but `tt-vjepa2` didn't hardcode its own
   `server_port` — when the declared port was busy, gradio silently
   auto-picked a different one, and the "Open" link pointed at nothing. Fixed
-  at the manifest level (not core tt-disco code): `tt-vjepa2`'s `launch`
+  at the manifest level (not core tt-discolike code): `tt-vjepa2`'s `launch`
   command now does `export GRADIO_SERVER_PORT=<port>; exec ...` so the
   declared and actual ports always match. Documented in README.md as a
   gotcha for anyone onboarding a new app.
@@ -62,7 +62,7 @@ A whole-branch review caught issues the per-task reviews missed:
   in both the gozer-wrapped and unwrapped cases. Regression test added that
   actually shells out to `systemd-analyze verify` on a rendered unit file
   (skipped if the binary isn't on `PATH`).
-- **Templates not packaged.** `disco/templates/*.html` had no
+- **Templates not packaged.** `discolike/templates/*.html` had no
   `[tool.setuptools.package-data]` entry, so a non-editable wheel install
   would raise `TemplateNotFound` on every route. Fixed in `pyproject.toml`.
 - **Silent start/stop failures.** `units.start_app()`/`stop_app()` already
@@ -80,3 +80,26 @@ A whole-branch review caught issues the per-task reviews missed:
   keeps only the first (by existing sort order) as valid and turns every
   later duplicate into a `BrokenManifest` naming the manifest it collided
   with.
+
+## UI restyle to match tt-awesome
+
+The plain HTML table was restyled to match `~/code/tt-awesome`'s dark teal
+theme (same CSS custom properties: `--bg0: #0F2A35`, `--teal: #4FD1C5`, etc.)
+— each app is now a card (like `tt-awesome`'s `cat-card`) with a status pill
+badge instead of a table row. No backend/functionality change; same htmx
+endpoints, same fields.
+
+## Rename: tt-disco → tt-discolike
+
+Renamed everything — GitHub repo, Python package (`disco` → `discolike`),
+console-script entry point, systemd unit prefix
+(`disco-<name>.service` → `discolike-<name>.service`), the `gozer --who`
+identifier (`disco:<name>` → `discolike:<name>`), and all `DISCO_*` env vars
+→ `DISCOLIKE_*`. Deliberately **not** renamed: the `.disco/app.yaml` manifest
+directory convention — it's already committed live in two other repos'
+history (`tt-vjepa2`, `tt-animatediff`), and treating it as a stable protocol
+detail (like `.git`) rather than tying it to this tool's own package name
+avoided touching already-pushed commits elsewhere. Published to
+`github.com/tsingletaryTT/tt-discolike` (public, Apache-2.0, matching
+`tt-animatediff`'s license) with a README covering install, the manifest
+schema, and a live screenshot of the catalog page.
