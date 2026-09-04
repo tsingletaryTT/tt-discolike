@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 from pathlib import Path
 
 import yaml
 
 REQUIRED_FIELDS = ("name", "description", "port", "launch")
+
+# A manifest's `name` flows straight into a systemd unit filename
+# (disco-<name>.service) and into a shell-quoted gozer --who argument
+# ("disco:<name>"). Restrict it to a conservative safe charset so it can
+# never smuggle in path traversal (e.g. "../../foo") or break out of the
+# surrounding double quotes (e.g. a bare `"`).
+NAME_PATTERN = re.compile(r"[A-Za-z0-9_.-]+")
 
 
 class ManifestError(Exception):
@@ -36,6 +44,13 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
     if missing:
         raise ManifestError(f"missing required field(s): {', '.join(missing)}")
 
+    name = str(raw["name"])
+    if not re.fullmatch(NAME_PATTERN, name):
+        raise ManifestError(
+            f"name {name!r} must match [A-Za-z0-9_.-]+ "
+            "(it is used in a systemd unit filename and a shell-quoted argument)"
+        )
+
     try:
         port = int(raw["port"])
     except (TypeError, ValueError) as exc:
@@ -52,7 +67,7 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
     source_dir = manifest_path.parent.parent
 
     return AppManifest(
-        name=str(raw["name"]),
+        name=name,
         description=str(raw["description"]),
         port=port,
         launch=str(raw["launch"]),
@@ -74,9 +89,32 @@ def find_manifests(root: Path) -> list[Path]:
 
 def discover_apps(root: Path) -> list[AppManifest | BrokenManifest]:
     results: list[AppManifest | BrokenManifest] = []
+    seen_names: dict[str, Path] = {}
     for manifest_path in find_manifests(root):
         try:
-            results.append(parse_manifest(manifest_path))
+            manifest = parse_manifest(manifest_path)
         except ManifestError as exc:
             results.append(BrokenManifest(manifest_path=manifest_path, error=str(exc)))
+            continue
+
+        if manifest.name in seen_names:
+            # Two repos declaring the same name would otherwise collide on
+            # one systemd unit (disco-<name>.service) -- Start on either
+            # row would silently start/control the same underlying app.
+            # Only the first manifest (by find_manifests' sort order) wins;
+            # every later one is surfaced as broken instead of silently
+            # colliding.
+            results.append(
+                BrokenManifest(
+                    manifest_path=manifest_path,
+                    error=(
+                        f"duplicate app name '{manifest.name}' "
+                        f"(already declared by {seen_names[manifest.name]})"
+                    ),
+                )
+            )
+            continue
+
+        seen_names[manifest.name] = manifest_path
+        results.append(manifest)
     return results

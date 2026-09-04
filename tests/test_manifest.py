@@ -71,6 +71,28 @@ def test_parse_manifest_invalid_yaml(tmp_path):
         parse_manifest(manifest_path)
 
 
+def test_parse_manifest_rejects_name_with_slash(tmp_path):
+    manifest_path = write_manifest(
+        tmp_path,
+        "broken",
+        "name: ../../foo\ndescription: d\nport: 1\nlaunch: run\n",
+    )
+
+    with pytest.raises(ManifestError, match="name"):
+        parse_manifest(manifest_path)
+
+
+def test_parse_manifest_rejects_name_with_quote(tmp_path):
+    manifest_path = write_manifest(
+        tmp_path,
+        "broken",
+        'name: foo"bar\ndescription: d\nport: 1\nlaunch: run\n',
+    )
+
+    with pytest.raises(ManifestError, match="name"):
+        parse_manifest(manifest_path)
+
+
 def test_parse_manifest_non_integer_port(tmp_path):
     manifest_path = write_manifest(
         tmp_path,
@@ -127,3 +149,30 @@ def test_discover_apps_mixes_valid_and_broken(tmp_path):
     assert valid[0].name == "vjepa2"
     assert len(broken) == 1
     assert "missing required field" in broken[0].error
+
+
+def test_discover_apps_flags_duplicate_names_as_broken(tmp_path):
+    first_path = write_manifest(
+        tmp_path,
+        "animatediff",
+        "name: shared\ndescription: first\nport: 1\nlaunch: run\n",
+    )
+    write_manifest(
+        tmp_path,
+        "vjepa2",
+        "name: shared\ndescription: second\nport: 2\nlaunch: run\n",
+    )
+
+    results = discover_apps(tmp_path)
+
+    valid = [r for r in results if isinstance(r, AppManifest)]
+    broken = [r for r in results if isinstance(r, BrokenManifest)]
+
+    # "animatediff" sorts before "vjepa2", so it wins the name.
+    assert len(valid) == 1
+    assert valid[0].name == "shared"
+    assert valid[0].description == "first"
+
+    assert len(broken) == 1
+    assert "duplicate app name 'shared'" in broken[0].error
+    assert str(first_path) in broken[0].error
