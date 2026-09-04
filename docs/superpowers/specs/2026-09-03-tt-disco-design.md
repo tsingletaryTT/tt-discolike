@@ -114,10 +114,11 @@ A small FastAPI app serves:
 - A list page: each discovered app's name, description, and status
   (running / stopped / broken), with Start/Stop buttons and — once
   running — a link to `http://localhost:<port>`.
-- A JSON API underneath the page (list apps, start, stop, status) that the
-  page itself calls.
-- htmx handles in-page status/button updates without a full reload or any
-  frontend build step.
+- Two HTML-fragment endpoints the page's own buttons call via htmx —
+  `POST /apps/{name}/start` and `POST /apps/{name}/stop` — each of which
+  re-renders and returns the catalog table partial (not JSON).
+- htmx swaps that returned fragment into the page in place, giving in-page
+  status/button updates without a full reload or any frontend build step.
 
 No reverse proxy or custom hostnames for now — links are plain
 `localhost:<port>` using the manifest's declared port.
