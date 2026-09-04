@@ -2,6 +2,7 @@ from pathlib import Path
 
 from disco.manifest import AppManifest
 from disco.units import build_launch_command, render_unit_file, unit_name
+import disco.units as units_mod
 
 
 def make_app(chips=None) -> AppManifest:
@@ -30,20 +31,29 @@ def test_build_launch_command_without_chips_declared():
     assert build_launch_command(app, use_gozer=True) == ".venv/bin/python app.py"
 
 
-def test_build_launch_command_with_gozer_and_chips():
+def test_build_launch_command_with_gozer_and_chips(monkeypatch):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/home/ttuser/.local/bin/gozer")
     app = make_app(chips=1)
     result = build_launch_command(app, use_gozer=True)
     assert result == (
-        'gozer run --chips 1 --who "disco:vjepa2" '
+        '/home/ttuser/.local/bin/gozer run --chips 1 --who "disco:vjepa2" '
         '--reason "gradio demo" -- .venv/bin/python app.py'
     )
 
 
-def test_render_unit_file_contains_working_directory_and_exec_start():
+def test_build_launch_command_falls_back_to_bare_name_if_which_fails(monkeypatch):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: None)
+    app = make_app(chips=1)
+    result = build_launch_command(app, use_gozer=True)
+    assert result.startswith("gozer run")
+
+
+def test_render_unit_file_contains_working_directory_and_exec_start(monkeypatch):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/home/ttuser/.local/bin/gozer")
     app = make_app(chips=1)
     content = render_unit_file(app, use_gozer=True)
     assert "WorkingDirectory=/home/ttuser/code/tt-vjepa2" in content
-    assert 'ExecStart=gozer run --chips 1 --who "disco:vjepa2"' in content
+    assert 'ExecStart=/home/ttuser/.local/bin/gozer run --chips 1 --who "disco:vjepa2"' in content
     assert "[Unit]" in content
     assert "[Service]" in content
     assert "[Install]" in content

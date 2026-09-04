@@ -23,8 +23,9 @@ def gozer_available() -> bool:
 
 def build_launch_command(app: AppManifest, use_gozer: bool) -> str:
     if use_gozer and app.chips is not None:
+        gozer_bin = shutil.which("gozer") or "gozer"
         return (
-            f'gozer run --chips {app.chips} --who "disco:{app.name}" '
+            f'{gozer_bin} run --chips {app.chips} --who "disco:{app.name}" '
             f'--reason "gradio demo" -- {app.launch}'
         )
     return app.launch
