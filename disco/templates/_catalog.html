@@ -1,27 +1,29 @@
 <!-- disco/templates/_catalog.html -->
-<table>
-  <thead>
-    <tr><th>Name</th><th>Description</th><th>Status</th><th>Actions</th></tr>
-  </thead>
-  <tbody>
-    {% for a in apps %}
-    <tr>
-      {% if a.broken %}
-      <td>{{ a.name }}</td>
-      <td class="broken" colspan="3">broken manifest: {{ a.error }}</td>
-      {% else %}
-      <td>{{ a.name }}</td>
-      <td>{{ a.description }}</td>
-      <td>{{ a.status }}</td>
-      <td>
-        <button hx-post="/apps/{{ a.name }}/start" hx-target="#catalog" hx-swap="innerHTML">Start</button>
-        <button hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
-        {% if a.status == "active" %}
-        <a href="http://localhost:{{ a.port }}" target="_blank">Open</a>
-        {% endif %}
-      </td>
+<div class="cat-grid">
+  {% for a in apps %}
+  {% if a.broken %}
+  <div class="cat-card broken">
+    <div class="card-top">
+      <div class="card-name">{{ a.name }}</div>
+      <span class="badge badge--failed">broken</span>
+    </div>
+    <div class="card-error">{{ a.error }}</div>
+  </div>
+  {% else %}
+  <div class="cat-card">
+    <div class="card-top">
+      <div class="card-name">{{ a.name }}</div>
+      <span class="badge badge--{{ a.status }}">{{ a.status }}</span>
+    </div>
+    <div class="card-desc">{{ a.description }}</div>
+    <div class="card-actions">
+      <button class="btn" hx-post="/apps/{{ a.name }}/start" hx-target="#catalog" hx-swap="innerHTML">Start</button>
+      <button class="btn" hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
+      {% if a.status == "active" %}
+      <a class="btn btn--open" href="http://localhost:{{ a.port }}" target="_blank">Open ↗</a>
       {% endif %}
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
