@@ -86,6 +86,27 @@
       background: rgba(79,209,197,0.08); border-color: rgba(79,209,197,0.3);
     }
     .btn--open:hover { border-color: var(--teal); background: rgba(79,209,197,0.14); }
+
+    .gozer-bar {
+      display: flex; align-items: center; gap: 12px; padding: 8px 20px;
+      background: var(--bg3); border-bottom: 1px solid rgba(79,209,197,0.15);
+      font-size: 11px;
+    }
+    .gozer-bar--hidden { display: none; }
+    .gozer-label {
+      font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); font-size: 9px;
+    }
+    .gozer-chips { display: flex; gap: 6px; }
+    .chip-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 5px; font-size: 10px;
+      font-weight: 700; color: var(--bg3); cursor: default;
+    }
+    .chip-pill--free      { background: var(--green); }
+    .chip-pill--claimed   { background: var(--gold); }
+    .chip-pill--attention { background: var(--pink); }
+    .gozer-queue { color: var(--gold); }
   </style>
 </head>
 <body>
@@ -93,6 +114,7 @@
     <span class="logo">tt-discolike</span>
     <span class="tagline">local catalog of gradio demo apps</span>
   </div>
+  {% include "_gozer_status.html" %}
   <div class="main">
     <div class="section-label">Demos</div>
     <div id="catalog">

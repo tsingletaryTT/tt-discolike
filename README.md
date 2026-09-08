@@ -60,6 +60,13 @@ treated as valid — every later one is shown in the catalog as a broken entry
 naming the manifest it collided with, rather than silently sharing one
 systemd unit.
 
+Symlinked app directories are followed and deduped: discovery resolves each
+manifest's directory through symlinks, and if two manifest paths resolve to
+the same real directory (e.g. an old repo name kept only as a symlink to its
+current one), the alias is silently skipped rather than treated as a name
+collision — the real (destination) directory is always the one whose path is
+used to launch the app.
+
 ## Discovery
 
 On every page load, tt-discolike scans a configured parent directory for
@@ -123,6 +130,22 @@ does not include `~/.local/bin` (a real bug hit during integration testing:
 `gozer` resolved bare in `ExecStart` and systemd failed with `203/EXEC`
 because it couldn't find it).
 
+## Live gozer status bar
+
+If the `gozer` binary is on `$PATH`, the catalog page shows a thin status
+bar under the top bar with one pill per chip — green (free), gold
+(claimed/held by a tracked lease), or pink (anything that needs a look:
+`STALE`, `HELD-FOREIGN`, `BUSY-UNTRACKED`, or an overstayed lease) — with a
+tooltip showing the chip's `bdf`, board, state, and (if held) the `who`/
+`reason` from the lease. It self-polls every 5 seconds via htmx
+(`GET /gozer-status`), independent of the Start/Stop catalog refresh.
+
+If `gozer` isn't installed, or `gozer status --json` fails or times out, the
+bar renders hidden rather than showing stale/broken data — same soft
+dependency posture as the rest of tt-discolike. It keeps polling while
+hidden, so it appears automatically if gozer becomes available later without
+needing a page reload.
+
 ## Gotcha: `GRADIO_SERVER_PORT` and the "Open" link
 
 The catalog's "Open" link is built from the manifest's declared `port` —
@@ -155,7 +178,7 @@ is easier to keep in sync with the manifest's `port` field.
 pytest
 ```
 
-30 tests, no hardware or `systemd`/`gozer` dependency required — the one
+31 tests, no hardware or `systemd`/`gozer` dependency required — the one
 exception (`test_render_unit_file_is_loadable_by_systemd_without_gozer`)
 shells out to `systemd-analyze verify` and is skipped automatically if that
 binary isn't on `$PATH`.

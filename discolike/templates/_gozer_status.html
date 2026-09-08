@@ -1,0 +1,36 @@
+<!-- disco/templates/_gozer_status.html -->
+<!-- Self-polling htmx fragment: this div's own id/hx-* attrs are re-rendered
+     on every swap so the poll keeps going even while gozer is unavailable
+     (hidden via CSS, not removed) -- if a lease daemon appears later, the
+     next poll picks it up without a page reload. -->
+<div
+  id="gozer-status"
+  class="gozer-bar{{ '' if gozer is not none else ' gozer-bar--hidden' }}"
+  hx-get="/gozer-status"
+  hx-trigger="load, every 5s"
+  hx-swap="outerHTML"
+>
+  {% if gozer is not none %}
+    <span class="gozer-label">gozer</span>
+    <div class="gozer-chips">
+      {% for chip in gozer.chips %}
+        {# gozer's chip states: FREE, CLAIMED/HELD (a tracked lease), and three
+           "needs a look" states -- HELD-FOREIGN (open but not via gozer),
+           BUSY-UNTRACKED (same), STALE (lease record outlived its process).
+           Any of the latter, or overstayed, gets the same attention color;
+           only FREE is "free" and only CLAIMED/HELD reads as a normal lease. #}
+        {% set state_class =
+          'free' if chip.state == 'FREE'
+          else ('claimed' if chip.state in ('CLAIMED', 'HELD') and not chip.overstayed
+          else 'attention') %}
+        <span
+          class="chip-pill chip-pill--{{ state_class }}"
+          title="{{ chip.bdf }} ({{ chip.card }}, board {{ chip.board }}) — {{ chip.state }}{% if chip.who %}, held by {{ chip.who }}{% if chip.reason %}: {{ chip.reason }}{% endif %}{% endif %}{% if chip.overstayed %} — overstayed{% endif %}"
+        >{{ chip.dev_index }}</span>
+      {% endfor %}
+    </div>
+    {% if gozer.queue %}
+      <span class="gozer-queue">{{ gozer.queue|length }} queued</span>
+    {% endif %}
+  {% endif %}
+</div>

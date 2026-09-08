@@ -65,8 +65,12 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
         except (TypeError, ValueError) as exc:
             raise ManifestError(f"chips must be an integer: {chips!r}") from exc
 
-    # manifest lives at <app repo root>/.disco/app.yaml
-    source_dir = manifest_path.parent.parent
+    # manifest lives at <app repo root>/.disco/app.yaml. Resolve symlinks so a
+    # symlinked alias directory (e.g. an old repo name kept as a symlink to
+    # the real one) and the real directory both launch from the same,
+    # canonical (destination) path -- never from the symlink's own path,
+    # which systemd's ExecStart would otherwise treat as a distinct cwd.
+    source_dir = (manifest_path.parent.parent).resolve()
 
     return AppManifest(
         name=name,
@@ -92,12 +96,22 @@ def find_manifests(root: Path) -> list[Path]:
 def discover_apps(root: Path) -> list[AppManifest | BrokenManifest]:
     results: list[AppManifest | BrokenManifest] = []
     seen_names: dict[str, Path] = {}
+    seen_real_dirs: dict[Path, Path] = {}
     for manifest_path in find_manifests(root):
         try:
             manifest = parse_manifest(manifest_path)
         except ManifestError as exc:
             results.append(BrokenManifest(manifest_path=manifest_path, error=str(exc)))
             continue
+
+        if manifest.source_dir in seen_real_dirs:
+            # A symlinked alias directory resolving to an app dir already
+            # discovered (e.g. an old repo name kept as a symlink to its
+            # current one) -- not a real conflict, just the same app found
+            # twice. Silently skip the alias; the destination directory's
+            # entry (already in `results`) is the sole, canonical one.
+            continue
+        seen_real_dirs[manifest.source_dir] = manifest_path
 
         if manifest.name in seen_names:
             # Two repos declaring the same name would otherwise collide on

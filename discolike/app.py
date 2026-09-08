@@ -9,7 +9,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
-from discolike import units
+from discolike import gozer_status, units
 from discolike.manifest import AppManifest, BrokenManifest, discover_apps
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
@@ -73,7 +73,15 @@ def create_app() -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(
-            request, "index.html", {"apps": catalog_rows()}
+            request,
+            "index.html",
+            {"apps": catalog_rows(), "gozer": gozer_status.get_status()},
+        )
+
+    @app.get("/gozer-status", response_class=HTMLResponse)
+    def gozer_status_fragment(request: Request) -> HTMLResponse:
+        return templates.TemplateResponse(
+            request, "_gozer_status.html", {"gozer": gozer_status.get_status()}
         )
 
     @app.post("/apps/{name}/start", response_class=HTMLResponse)

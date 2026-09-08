@@ -178,3 +178,25 @@ def test_discover_apps_flags_duplicate_names_as_broken(tmp_path):
     assert len(broken) == 1
     assert "duplicate app name 'shared'" in broken[0].error
     assert str(first_path) in broken[0].error
+
+
+def test_discover_apps_dedupes_symlinked_alias_directory(tmp_path):
+    write_manifest(
+        tmp_path,
+        "tt-tnt",
+        "name: tt-tnt\ndescription: real\nport: 1\nlaunch: .venv/bin/python app.py\n",
+    )
+    # An old repo name kept only as a symlink to the real directory -- glob("*/.disco/app.yaml")
+    # finds the same manifest file again under the alias path.
+    (tmp_path / "tt-nanollama3").symlink_to(tmp_path / "tt-tnt")
+
+    results = discover_apps(tmp_path)
+
+    valid = [r for r in results if isinstance(r, AppManifest)]
+    broken = [r for r in results if isinstance(r, BrokenManifest)]
+
+    assert len(broken) == 0
+    assert len(valid) == 1
+    # The destination (real) directory is the canonical source_dir, regardless
+    # of which path sorted first.
+    assert valid[0].source_dir == (tmp_path / "tt-tnt").resolve()
