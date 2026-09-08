@@ -1,0 +1,27 @@
+<!-- disco/templates/_app_view.html -->
+<!-- Self-swapping like _catalog.html: Start/Stop re-render this whole div
+     (id + hx-* live on the swapped-in element too), so the iframe appears
+     the moment the app goes active and disappears the moment it stops. -->
+<div id="app-view">
+  <div class="visor">
+    <a class="visor-menu" href="/">☰ Menu</a>
+    <span class="visor-name">{{ app.name }}</span>
+    <span class="badge badge--{{ app.status }}">{{ app.status }}</span>
+    <span class="visor-desc">{{ app.description }}</span>
+    <div class="visor-actions">
+      <button class="btn" hx-post="/apps/{{ app.name }}/view/start" hx-target="#app-view" hx-swap="outerHTML">Start</button>
+      <button class="btn" hx-post="/apps/{{ app.name }}/view/stop" hx-target="#app-view" hx-swap="outerHTML">Stop</button>
+    </div>
+  </div>
+  {% if error %}
+  <div class="visor-error">command failed: {{ error }}</div>
+  {% endif %}
+  {% if app.status == "active" %}
+  <iframe class="visor-frame" src="http://localhost:{{ app.port }}" title="{{ app.name }}"></iframe>
+  {% else %}
+  <div class="visor-placeholder">
+    <p>{{ app.name }} is not running.</p>
+    <p class="visor-placeholder-hint">Click Start above to bring it up.</p>
+  </div>
+  {% endif %}
+</div>

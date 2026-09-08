@@ -1,0 +1,99 @@
+<!-- disco/templates/view.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>{{ app.name }} — tt-discolike</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg0: #0F2A35; --bg1: #1A3C47; --bg2: #2D3142; --bg3: #0a1e28;
+      --teal: #4FD1C5; --teal-lt: #81E6D9;
+      --green: #27AE60; --pink: #EC96B8; --muted: #607D8B; --gold: #F4C471;
+      --text: #E8F0F2; --text2: #B0C4DE;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg0); color: var(--text); font-size: 14px;
+      display: flex; flex-direction: column;
+    }
+
+    .gozer-bar {
+      display: flex; align-items: center; gap: 12px; padding: 6px 16px;
+      background: var(--bg3); border-bottom: 1px solid rgba(79,209,197,0.15);
+      font-size: 11px; flex-shrink: 0;
+    }
+    .gozer-bar--hidden { display: none; }
+    .gozer-label {
+      font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted); font-size: 9px;
+    }
+    .gozer-chips { display: flex; gap: 6px; }
+    .chip-pill {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 5px; font-size: 10px;
+      font-weight: 700; color: var(--bg3); cursor: default;
+    }
+    .chip-pill--free      { background: var(--green); }
+    .chip-pill--claimed   { background: var(--gold); }
+    .chip-pill--attention { background: var(--pink); }
+    .gozer-queue { color: var(--gold); }
+
+    #app-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+
+    .visor {
+      display: flex; align-items: center; gap: 14px; padding: 8px 16px;
+      background: var(--bg1); border-bottom: 1px solid var(--bg2); flex-shrink: 0;
+    }
+    .visor-menu {
+      color: var(--teal); text-decoration: none; font-weight: 700; font-size: 12px;
+      white-space: nowrap;
+    }
+    .visor-menu:hover { color: var(--teal-lt); }
+    .visor-name { font-weight: 700; font-size: 13px; }
+    .visor-desc {
+      color: var(--muted); font-size: 11px; flex: 1; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+    .visor-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+    .badge {
+      font-size: 9px; padding: 2px 9px; border-radius: 10px; color: #fff;
+      white-space: nowrap; text-transform: uppercase; letter-spacing: 0.4px;
+      flex-shrink: 0;
+    }
+    .badge--active   { background: var(--green); }
+    .badge--inactive { background: var(--muted); }
+    .badge--failed   { background: var(--pink); color: var(--bg3); }
+    .badge--unknown  { background: var(--muted); }
+
+    .btn {
+      font-size: 11px; padding: 4px 12px; border-radius: 6px; border: 1px solid var(--bg2);
+      background: var(--bg0); color: var(--teal); cursor: pointer;
+      transition: border-color 0.1s, color 0.1s; letter-spacing: 0.2px;
+      font-family: inherit;
+    }
+    .btn:hover { border-color: var(--teal); color: var(--teal-lt); }
+
+    .visor-error {
+      font-size: 11px; color: var(--pink); padding: 8px 16px;
+      background: var(--bg0); border-bottom: 1px solid rgba(236,150,184,0.25);
+    }
+
+    .visor-frame { flex: 1; min-height: 0; width: 100%; border: 0; background: #fff; }
+
+    .visor-placeholder {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 6px; color: var(--muted); text-align: center;
+    }
+    .visor-placeholder-hint { font-size: 12px; }
+  </style>
+</head>
+<body>
+  {% include "_gozer_status.html" %}
+  {% include "_app_view.html" %}
+</body>
+</html>

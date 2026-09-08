@@ -146,6 +146,19 @@ dependency posture as the rest of tt-discolike. It keeps polling while
 hidden, so it appears automatically if gozer becomes available later without
 needing a page reload.
 
+## The visor: `/apps/<name>/view`
+
+The catalog's "Open ↗" link no longer points straight at an app's own port —
+it opens `/apps/<name>/view`, a page tt-discolike itself serves: a thin
+"visor" bar (← Menu back to the catalog, the app's name/description/status,
+Start/Stop buttons) fixed above an `<iframe>` of the app's actual gradio UI,
+with the same live gozer status bar from the catalog page along the top.
+Start/Stop re-render the whole visor+content area in place (same
+self-swapping htmx pattern as the catalog), so the iframe appears the moment
+the app goes active and is replaced by a "not running" placeholder the
+moment it stops — no manual refresh, and no changes needed to any app's own
+code, since the wrapping happens entirely in tt-discolike.
+
 ## Gotcha: `GRADIO_SERVER_PORT` and the "Open" link
 
 The catalog's "Open" link is built from the manifest's declared `port` —
@@ -178,7 +191,7 @@ is easier to keep in sync with the manifest's `port` field.
 pytest
 ```
 
-31 tests, no hardware or `systemd`/`gozer` dependency required — the one
+36 tests, no hardware or `systemd`/`gozer` dependency required — the one
 exception (`test_render_unit_file_is_loadable_by_systemd_without_gozer`)
 shells out to `systemd-analyze verify` and is skipped automatically if that
 binary isn't on `$PATH`.

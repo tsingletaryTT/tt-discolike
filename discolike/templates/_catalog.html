@@ -20,7 +20,7 @@
       <button class="btn" hx-post="/apps/{{ a.name }}/start" hx-target="#catalog" hx-swap="innerHTML">Start</button>
       <button class="btn" hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
       {% if a.status == "active" %}
-      <a class="btn btn--open" href="http://localhost:{{ a.port }}" target="_blank">Open ↗</a>
+      <a class="btn btn--open" href="/apps/{{ a.name }}/view" target="_blank">Open ↗</a>
       {% endif %}
     </div>
   </div>

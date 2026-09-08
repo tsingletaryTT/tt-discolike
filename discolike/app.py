@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 
 from discolike import gozer_status, units
@@ -70,6 +70,16 @@ def create_app() -> FastAPI:
                 return entry
         return None
 
+    def app_view_row(name: str, target: AppManifest | None) -> dict:
+        if target is None:
+            return {"name": name, "description": "", "port": None, "status": "unknown"}
+        return {
+            "name": target.name,
+            "description": target.description,
+            "port": target.port,
+            "status": units.app_status(target.name),
+        }
+
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
         return templates.TemplateResponse(
@@ -108,6 +118,43 @@ def create_app() -> FastAPI:
             rows = catalog_rows()
         return templates.TemplateResponse(
             request, "_catalog.html", {"apps": rows}
+        )
+
+    @app.get("/apps/{name}/view", response_class=HTMLResponse)
+    def app_view(request: Request, name: str) -> HTMLResponse:
+        target = find_app(name)
+        if target is None:
+            return PlainTextResponse(f"no such app: {name!r}", status_code=404)
+        return templates.TemplateResponse(
+            request,
+            "view.html",
+            {"app": app_view_row(name, target), "gozer": gozer_status.get_status()},
+        )
+
+    @app.post("/apps/{name}/view/start", response_class=HTMLResponse)
+    def app_view_start(request: Request, name: str) -> HTMLResponse:
+        target = find_app(name)
+        error = None
+        if target is not None:
+            result = units.start_app(target)
+            if result.returncode != 0:
+                error = result.stderr.strip() or "command failed with no output"
+        return templates.TemplateResponse(
+            request,
+            "_app_view.html",
+            {"app": app_view_row(name, find_app(name)), "error": error},
+        )
+
+    @app.post("/apps/{name}/view/stop", response_class=HTMLResponse)
+    def app_view_stop(request: Request, name: str) -> HTMLResponse:
+        result = units.stop_app(name)
+        error = None
+        if result.returncode != 0:
+            error = result.stderr.strip() or "command failed with no output"
+        return templates.TemplateResponse(
+            request,
+            "_app_view.html",
+            {"app": app_view_row(name, find_app(name)), "error": error},
         )
 
     return app

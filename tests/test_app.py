@@ -127,3 +127,70 @@ def test_stop_endpoint_shows_error_on_failure(monkeypatch):
     assert response.status_code == 200
     assert "vjepa2" in response.text
     assert "Failed to stop discolike-vjepa2.service: unit not loaded" in response.text
+
+
+def test_view_endpoint_shows_iframe_when_active(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.gozer_status, "get_status", lambda: None)
+
+    client = TestClient(app_mod.create_app())
+    response = client.get("/apps/vjepa2/view")
+
+    assert response.status_code == 200
+    assert "vjepa2" in response.text
+    assert 'src="http://localhost:7860"' in response.text
+    assert 'href="/"' in response.text  # menu link back to the catalog
+
+
+def test_view_endpoint_shows_placeholder_when_not_active(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.gozer_status, "get_status", lambda: None)
+
+    client = TestClient(app_mod.create_app())
+    response = client.get("/apps/vjepa2/view")
+
+    assert response.status_code == 200
+    assert "not running" in response.text
+    assert "<iframe" not in response.text
+
+
+def test_view_endpoint_404s_for_unknown_app(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [])
+
+    client = TestClient(app_mod.create_app())
+    response = client.get("/apps/nonexistent/view")
+
+    assert response.status_code == 404
+
+
+def test_view_start_swaps_in_iframe(monkeypatch):
+    target = make_app()
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    calls = []
+    monkeypatch.setattr(
+        app_mod.units,
+        "start_app",
+        lambda app: (calls.append(app), completed(returncode=0))[1],
+    )
+
+    client = TestClient(app_mod.create_app())
+    response = client.post("/apps/vjepa2/view/start")
+
+    assert response.status_code == 200
+    assert calls == [target]
+    assert 'src="http://localhost:7860"' in response.text
+
+
+def test_view_stop_swaps_in_placeholder(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "stop_app", lambda name: completed(returncode=0))
+
+    client = TestClient(app_mod.create_app())
+    response = client.post("/apps/vjepa2/view/stop")
+
+    assert response.status_code == 200
+    assert "not running" in response.text
