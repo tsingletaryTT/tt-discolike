@@ -36,7 +36,8 @@ def test_build_launch_command_without_chips_declared():
 
 
 def test_build_launch_command_with_gozer_and_chips(monkeypatch):
-    monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/home/ttuser/.local/bin/gozer")
+    monkeypatch.setattr(units_mod.shutil, "which",
+                        lambda name: "/home/ttuser/.local/bin/gozer" if name == "gozer" else None)
     app = make_app(chips=1)
     result = build_launch_command(app, use_gozer=True)
     resolved_launch = str(app.source_dir) + "/.venv/bin/python app.py"
@@ -54,7 +55,8 @@ def test_build_launch_command_falls_back_to_bare_name_if_which_fails(monkeypatch
 
 
 def test_render_unit_file_contains_working_directory_and_exec_start(monkeypatch):
-    monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/home/ttuser/.local/bin/gozer")
+    monkeypatch.setattr(units_mod.shutil, "which",
+                        lambda name: "/home/ttuser/.local/bin/gozer" if name == "gozer" else None)
     app = make_app(chips=1)
     content = render_unit_file(app, use_gozer=True)
     assert "WorkingDirectory=/home/ttuser/code/tt-vjepa2" in content
@@ -62,6 +64,47 @@ def test_render_unit_file_contains_working_directory_and_exec_start(monkeypatch)
     assert "[Unit]" in content
     assert "[Service]" in content
     assert "[Install]" in content
+
+
+def test_render_unit_file_pins_gozer_reset_cmd_when_tt_smi_resolves(monkeypatch):
+    """Regression test for the auto-release reset_ok=false bug: without a
+    pinned GOZER_RESET_CMD, gozer's own `tt-smi -r` call fails under
+    systemd's restricted PATH every single time."""
+    resolved = {"gozer": "/home/ttuser/.local/bin/gozer",
+                "tt-smi": "/home/ttuser/.local/bin/tt-smi"}
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: resolved.get(name))
+    app = make_app(chips=1)
+    content = render_unit_file(app, use_gozer=True)
+    assert "Environment=GOZER_RESET_CMD=/home/ttuser/.local/bin/tt-smi" in content
+    # placed in [Service], before ExecStart, not leaked into [Unit]/[Install]
+    assert content.index("Environment=GOZER_RESET_CMD=") > content.index("[Service]")
+    assert content.index("Environment=GOZER_RESET_CMD=") < content.index("ExecStart=")
+
+
+def test_render_unit_file_omits_reset_cmd_when_tt_smi_not_found(monkeypatch):
+    monkeypatch.setattr(units_mod.shutil, "which",
+                        lambda name: "/home/ttuser/.local/bin/gozer" if name == "gozer" else None)
+    app = make_app(chips=1)
+    content = render_unit_file(app, use_gozer=True)
+    assert "GOZER_RESET_CMD" not in content
+
+
+def test_render_unit_file_omits_reset_cmd_when_not_using_gozer(monkeypatch):
+    resolved = {"gozer": "/home/ttuser/.local/bin/gozer",
+                "tt-smi": "/home/ttuser/.local/bin/tt-smi"}
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: resolved.get(name))
+    app = make_app(chips=1)
+    content = render_unit_file(app, use_gozer=False)
+    assert "GOZER_RESET_CMD" not in content
+
+
+def test_render_unit_file_omits_reset_cmd_when_app_declares_no_chips(monkeypatch):
+    resolved = {"gozer": "/home/ttuser/.local/bin/gozer",
+                "tt-smi": "/home/ttuser/.local/bin/tt-smi"}
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: resolved.get(name))
+    app = make_app(chips=None)
+    content = render_unit_file(app, use_gozer=True)
+    assert "GOZER_RESET_CMD" not in content
 
 
 import shutil as _shutil

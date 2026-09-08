@@ -23,6 +23,10 @@ def gozer_available() -> bool:
     return shutil.which("gozer") is not None
 
 
+def _resolve_tt_smi() -> str | None:
+    return shutil.which("tt-smi")
+
+
 def _resolve_launch(app: AppManifest) -> str:
     """Resolve a relative launch command's executable against source_dir.
 
@@ -53,12 +57,28 @@ def build_launch_command(app: AppManifest, use_gozer: bool) -> str:
 
 def render_unit_file(app: AppManifest, use_gozer: bool) -> str:
     exec_start = build_launch_command(app, use_gozer)
+
+    # systemd user-manager services do not inherit an interactive shell's
+    # PATH (it defaults to something like /usr/bin:/bin), so `gozer run`'s
+    # own internal `tt-smi -r` call -- resolved by bare name -- fails to find
+    # the binary and every auto-release under discolike reports a failed
+    # reset (gozer's own history.jsonl shows this: reset_ok is false for
+    # every discolike-launched lease and true for every other one). Pin
+    # gozer's reset command to an absolute path via its documented
+    # GOZER_RESET_CMD override so the unit's restricted PATH can't break it.
+    reset_cmd_line = ""
+    if use_gozer and app.chips is not None:
+        tt_smi = _resolve_tt_smi()
+        if tt_smi:
+            reset_cmd_line = f"Environment=GOZER_RESET_CMD={tt_smi}\n"
+
     return (
         "[Unit]\n"
         f"Description=tt-discolike managed app: {app.name}\n"
         "\n"
         "[Service]\n"
         f"WorkingDirectory={app.source_dir}\n"
+        f"{reset_cmd_line}"
         f"ExecStart={exec_start}\n"
         "Restart=no\n"
         "\n"
