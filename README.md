@@ -53,6 +53,7 @@ launch: .venv/bin/python gradio_app/app.py
 | `port`        | yes      | The port the app's own server listens on. Used to build the catalog's "Open" link (`http://localhost:<port>`). |
 | `launch`      | yes      | Shell command that starts the app, run with cwd set to the app's own directory (the manifest's parent's parent). A relative executable path (e.g. `.venv/bin/python`) is resolved to an absolute path against that directory before being placed in the generated systemd unit — systemd's `ExecStart=` rejects a relative path containing a slash. |
 | `chips`       | no       | Number of Tenstorrent chips this app wants. Purely advisory: tt-discolike does not validate or reserve anything itself. If `gozer` is on `$PATH` *and* `chips` is set, the launch command is wrapped with `gozer run --chips <N> ...` (see below). If either condition is false, `launch` runs completely unmodified. |
+| `hidden`      | no       | Default `false`. When `true`, the app is excluded from the catalog listing but is otherwise fully functional — still reachable directly at `/apps/<name>/view`, still startable/stoppable via its own routes. Meant for an app that shouldn't appear as a card in its own catalog, e.g. tt-discolike's own `.disco/app.yaml`, which dogfoods the manifest convention on itself and would otherwise list itself. |
 
 Two names cannot collide: if two manifests under the scanned root declare
 the same `name`, only the first one found (by manifest path sort order) is
@@ -95,6 +96,39 @@ Configuration is via environment variables:
 - `DISCOLIKE_HOST` — interface to bind, default `127.0.0.1`.
 - `DISCOLIKE_CATALOG_PORT` — port to serve the catalog page on, default `8760`.
 - `DISCOLIKE_SCAN_ROOT` — parent directory to scan for manifests, default `~/code`.
+
+### Reaching it from another machine on the same network
+
+The default `127.0.0.1` only accepts connections from the machine tt-discolike
+runs on. To let another machine on your LAN reach it, bind to all interfaces
+(or a specific one) instead:
+
+```bash
+DISCOLIKE_HOST=0.0.0.0 discolike
+```
+
+Then browse to `http://<this-machine's-LAN-IP-or-hostname>:8760/` from the
+other machine. Two things this depends on:
+
+- **Each app's own gradio server must also bind beyond loopback.** tt-discolike
+  doesn't control this — it's each app's own `demo.launch(...)` call. Pass
+  `server_name="0.0.0.0"` there (or set the `GRADIO_SERVER_NAME` env var in
+  the manifest's `launch` command) if an app currently defaults to loopback;
+  otherwise the catalog page itself loads fine remotely, but the embedded
+  demo won't connect, and the "Open" view will just show a blank frame.
+- **No host firewall may be blocking the port** (`ufw`, `iptables`, etc.) —
+  check `sudo ufw status` and the relevant port before assuming the network,
+  not the box, is the problem.
+
+The visor page's embedded iframe (`GET /apps/<name>/view`) points at whatever
+hostname the browser itself used to load the page (`window.location.hostname`,
+set client-side) rather than a hardcoded `localhost` — so this works the same
+way whether you're on the box itself, on `localhost`, or on another machine
+on the LAN, with no separate configuration needed for the iframe specifically.
+
+This binds to your LAN with no authentication — anyone who can reach the port
+can start/stop your systemd units and view/control any cataloged app. Fine
+for a trusted home/lab network; don't do this on a network you don't trust.
 
 The catalog is a small FastAPI app (`discolike/main.py` → `discolike/app.py`)
 serving one page (`GET /`) built from htmx fragments — clicking Start/Stop

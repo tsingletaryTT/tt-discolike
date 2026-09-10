@@ -15,7 +15,7 @@ def completed(returncode=0, stderr="", stdout=""):
     )
 
 
-def make_app(name="vjepa2", chips=None) -> AppManifest:
+def make_app(name="vjepa2", chips=None, hidden=False) -> AppManifest:
     return AppManifest(
         name=name,
         description="V-JEPA2 demo",
@@ -24,6 +24,7 @@ def make_app(name="vjepa2", chips=None) -> AppManifest:
         source_dir=Path(f"/home/ttuser/code/tt-{name}"),
         manifest_path=Path(f"/home/ttuser/code/tt-{name}/.disco/app.yaml"),
         chips=chips,
+        hidden=hidden,
     )
 
 
@@ -40,6 +41,20 @@ def test_index_lists_discovered_apps(monkeypatch):
     assert "vjepa2" in response.text
     assert "V-JEPA2 demo" in response.text
     assert "inactive" in response.text
+
+
+def test_index_excludes_hidden_app_but_view_still_reaches_it(monkeypatch):
+    hidden = make_app(name="discolike", hidden=True)
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [hidden])
+    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+
+    client = TestClient(app_mod.create_app())
+    index_response = client.get("/")
+    view_response = client.get("/apps/discolike/view")
+
+    assert "V-JEPA2 demo" not in index_response.text  # the hidden app's own description
+    assert view_response.status_code == 200
+    assert "V-JEPA2 demo" in view_response.text
 
 
 def test_index_shows_broken_manifest_error(monkeypatch):
@@ -139,7 +154,8 @@ def test_view_endpoint_shows_iframe_when_active(monkeypatch):
 
     assert response.status_code == 200
     assert "vjepa2" in response.text
-    assert 'src="http://localhost:7860"' in response.text
+    assert 'id="visor-frame-vjepa2"' in response.text
+    assert '+ ":7860"' in response.text  # port set client-side via location.hostname
     assert 'href="/"' in response.text  # menu link back to the catalog
 
 
@@ -181,7 +197,8 @@ def test_view_start_swaps_in_iframe(monkeypatch):
 
     assert response.status_code == 200
     assert calls == [target]
-    assert 'src="http://localhost:7860"' in response.text
+    assert 'id="visor-frame-vjepa2"' in response.text
+    assert '+ ":7860"' in response.text  # port set client-side via location.hostname
 
 
 def test_view_stop_swaps_in_placeholder(monkeypatch):

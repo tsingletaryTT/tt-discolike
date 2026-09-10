@@ -17,7 +17,17 @@
   <div class="visor-error">command failed: {{ error }}</div>
   {% endif %}
   {% if app.status == "active" %}
-  <iframe class="visor-frame" src="http://localhost:{{ app.port }}" title="{{ app.name }}"></iframe>
+  <!-- src is set client-side from location.hostname, not templated as a fixed
+       "localhost" -- the catalog and every app it launches run on the same
+       machine, but that machine may be reached over the LAN by a different
+       name/IP than "localhost" (e.g. from another machine on the same
+       network). Using whatever hostname the browser actually used to load
+       THIS page keeps the iframe pointed at the same host, whatever that is. -->
+  <iframe class="visor-frame" id="visor-frame-{{ app.name }}" title="{{ app.name }}"></iframe>
+  <script>
+    document.getElementById("visor-frame-{{ app.name }}").src =
+      "http://" + window.location.hostname + ":{{ app.port }}";
+  </script>
   {% else %}
   <div class="visor-placeholder">
     <p>{{ app.name }} is not running.</p>

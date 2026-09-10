@@ -31,6 +31,7 @@ class AppManifest:
     source_dir: Path
     manifest_path: Path
     chips: int | None = None
+    hidden: bool = False
 
 
 def parse_manifest(manifest_path: Path) -> AppManifest:
@@ -65,6 +66,8 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
         except (TypeError, ValueError) as exc:
             raise ManifestError(f"chips must be an integer: {chips!r}") from exc
 
+    hidden = bool(raw.get("hidden", False))
+
     # manifest lives at <app repo root>/.disco/app.yaml. Resolve symlinks so a
     # symlinked alias directory (e.g. an old repo name kept as a symlink to
     # the real one) and the real directory both launch from the same,
@@ -80,6 +83,7 @@ def parse_manifest(manifest_path: Path) -> AppManifest:
         source_dir=source_dir,
         manifest_path=manifest_path,
         chips=chips,
+        hidden=hidden,
     )
 
 

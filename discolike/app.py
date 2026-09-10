@@ -53,6 +53,14 @@ def create_app() -> FastAPI:
                     }
                 )
             else:
+                if entry.hidden:
+                    # Not listed, but still fully controllable via its own
+                    # direct routes (start/stop/view) -- "hidden" means "not
+                    # in the menu", not "disabled". The catalog cataloging
+                    # itself (tt-discolike's own .disco/app.yaml, dogfooding
+                    # the manifest convention) is the motivating case: it
+                    # shouldn't appear as a card in its own listing.
+                    continue
                 rows.append(
                     {
                         "name": entry.name,

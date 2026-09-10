@@ -200,3 +200,23 @@ def test_discover_apps_dedupes_symlinked_alias_directory(tmp_path):
     # The destination (real) directory is the canonical source_dir, regardless
     # of which path sorted first.
     assert valid[0].source_dir == (tmp_path / "tt-tnt").resolve()
+
+
+def test_parse_manifest_without_hidden_defaults_false(tmp_path):
+    manifest_path = write_manifest(
+        tmp_path,
+        "vjepa2",
+        "name: vjepa2\ndescription: d\nport: 1\nlaunch: run\n",
+    )
+
+    assert parse_manifest(manifest_path).hidden is False
+
+
+def test_parse_manifest_hidden_true(tmp_path):
+    manifest_path = write_manifest(
+        tmp_path,
+        "discolike",
+        "name: discolike\ndescription: d\nport: 8760\nhidden: true\nlaunch: run\n",
+    )
+
+    assert parse_manifest(manifest_path).hidden is True

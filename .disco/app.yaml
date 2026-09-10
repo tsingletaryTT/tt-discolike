@@ -1,0 +1,5 @@
+name: discolike
+description: tt-discolike itself — the demo catalog page (dogfooding its own manifest convention)
+port: 8760
+hidden: true
+launch: /home/ttuser/.tenstorrent-venv/bin/discolike
