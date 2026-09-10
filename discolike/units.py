@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import socket
 import subprocess
 from pathlib import Path
 
@@ -145,3 +146,35 @@ def stop_app(app_name: str) -> subprocess.CompletedProcess:
 def app_status(app_name: str) -> str:
     result = systemctl("is-active", unit_name(app_name))
     return result.stdout.strip() or "unknown"
+
+
+def port_open(host: str, port: int, timeout: float = 0.25) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def effective_status(app: AppManifest) -> str:
+    """Fold systemd's raw is-active state and an actual port check into a
+    single UI-facing status.
+
+    systemd marks a Type=simple unit "active" the instant the process forks,
+    not when the gradio server inside it is actually listening -- these
+    demos routinely spend seconds to minutes loading a model or waiting on a
+    gozer chip lease after the process starts. Treat "active" as merely
+    "loading" until the declared port actually accepts a connection.
+    """
+    raw = app_status(app.name)
+    if raw == "active":
+        return "ready" if port_open("127.0.0.1", app.port) else "loading"
+    if raw == "activating":
+        return "loading"
+    if raw == "deactivating":
+        return "stopping"
+    if raw == "inactive":
+        return "stopped"
+    if raw == "failed":
+        return "failed"
+    return "unknown"

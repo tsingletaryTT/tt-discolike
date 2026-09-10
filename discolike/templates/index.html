@@ -62,10 +62,13 @@
       white-space: nowrap; text-transform: uppercase; letter-spacing: 0.4px;
       flex-shrink: 0;
     }
-    .badge--active   { background: var(--green); }
-    .badge--inactive { background: var(--muted); }
+    .badge--ready    { background: var(--green); }
+    .badge--loading  { background: var(--gold); color: var(--bg3); animation: badge-pulse 1.4s ease-in-out infinite; }
+    .badge--stopping { background: var(--muted); animation: badge-pulse 1.4s ease-in-out infinite; }
+    .badge--stopped  { background: var(--muted); }
     .badge--failed   { background: var(--pink); color: var(--bg3); }
     .badge--unknown  { background: var(--muted); }
+    @keyframes badge-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
     .card-error {
       font-size: 11px; color: var(--pink); line-height: 1.5;

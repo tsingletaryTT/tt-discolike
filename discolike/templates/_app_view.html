@@ -16,7 +16,13 @@
   {% if error %}
   <div class="visor-error">command failed: {{ error }}</div>
   {% endif %}
-  {% if app.status == "active" %}
+  {% if polling %}
+  <!-- Re-fetches this fragment while the app is loading/stopping so the
+       badge and iframe/placeholder flip over on their own once the port
+       actually comes up (or the process actually exits). -->
+  <div hx-get="/apps/{{ app.name }}/view/status" hx-trigger="every 2s" hx-target="#app-view" hx-swap="outerHTML"></div>
+  {% endif %}
+  {% if app.status == "ready" %}
   <!-- src is set client-side from location.hostname, not templated as a fixed
        "localhost" -- the catalog and every app it launches run on the same
        machine, but that machine may be reached over the LAN by a different
@@ -28,6 +34,15 @@
     document.getElementById("visor-frame-{{ app.name }}").src =
       "http://" + window.location.hostname + ":{{ app.port }}";
   </script>
+  {% elif app.status == "loading" %}
+  <div class="visor-placeholder">
+    <p>{{ app.name }} is starting up…</p>
+    <p class="visor-placeholder-hint">Waiting for it to accept connections on port {{ app.port }}.</p>
+  </div>
+  {% elif app.status == "stopping" %}
+  <div class="visor-placeholder">
+    <p>{{ app.name }} is shutting down…</p>
+  </div>
   {% else %}
   <div class="visor-placeholder">
     <p>{{ app.name }} is not running.</p>

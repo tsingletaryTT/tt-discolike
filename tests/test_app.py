@@ -32,7 +32,7 @@ def test_index_lists_discovered_apps(monkeypatch):
     monkeypatch.setattr(
         app_mod, "discover_apps", lambda root: [make_app()]
     )
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "stopped")
 
     client = TestClient(app_mod.create_app())
     response = client.get("/")
@@ -40,13 +40,13 @@ def test_index_lists_discovered_apps(monkeypatch):
     assert response.status_code == 200
     assert "vjepa2" in response.text
     assert "V-JEPA2 demo" in response.text
-    assert "inactive" in response.text
+    assert "stopped" in response.text
 
 
 def test_index_excludes_hidden_app_but_view_still_reaches_it(monkeypatch):
     hidden = make_app(name="discolike", hidden=True)
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [hidden])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
 
     client = TestClient(app_mod.create_app())
     index_response = client.get("/")
@@ -74,7 +74,7 @@ def test_index_shows_broken_manifest_error(monkeypatch):
 def test_start_endpoint_calls_units_start_app(monkeypatch):
     target = make_app()
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
     calls = []
 
     def fake_start(app):
@@ -88,12 +88,12 @@ def test_start_endpoint_calls_units_start_app(monkeypatch):
 
     assert response.status_code == 200
     assert calls == [target]
-    assert "active" in response.text
+    assert "ready" in response.text
 
 
 def test_stop_endpoint_calls_units_stop_app(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "stopped")
     calls = []
 
     def fake_stop(name):
@@ -112,7 +112,7 @@ def test_stop_endpoint_calls_units_stop_app(monkeypatch):
 def test_start_endpoint_shows_error_on_failure(monkeypatch):
     target = make_app()
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "stopped")
     monkeypatch.setattr(
         app_mod.units,
         "start_app",
@@ -129,7 +129,7 @@ def test_start_endpoint_shows_error_on_failure(monkeypatch):
 
 def test_stop_endpoint_shows_error_on_failure(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
     monkeypatch.setattr(
         app_mod.units,
         "stop_app",
@@ -146,7 +146,7 @@ def test_stop_endpoint_shows_error_on_failure(monkeypatch):
 
 def test_view_endpoint_shows_iframe_when_active(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
     monkeypatch.setattr(app_mod.gozer_status, "get_status", lambda: None)
 
     client = TestClient(app_mod.create_app())
@@ -161,7 +161,7 @@ def test_view_endpoint_shows_iframe_when_active(monkeypatch):
 
 def test_view_endpoint_shows_placeholder_when_not_active(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "stopped")
     monkeypatch.setattr(app_mod.gozer_status, "get_status", lambda: None)
 
     client = TestClient(app_mod.create_app())
@@ -184,7 +184,7 @@ def test_view_endpoint_404s_for_unknown_app(monkeypatch):
 def test_view_start_swaps_in_iframe(monkeypatch):
     target = make_app()
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [target])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "active")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
     calls = []
     monkeypatch.setattr(
         app_mod.units,
@@ -203,7 +203,7 @@ def test_view_start_swaps_in_iframe(monkeypatch):
 
 def test_view_stop_swaps_in_placeholder(monkeypatch):
     monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
-    monkeypatch.setattr(app_mod.units, "app_status", lambda name: "inactive")
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "stopped")
     monkeypatch.setattr(app_mod.units, "stop_app", lambda name: completed(returncode=0))
 
     client = TestClient(app_mod.create_app())

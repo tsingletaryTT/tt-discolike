@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
+import socket
 from pathlib import Path
 
 from discolike.manifest import AppManifest
@@ -266,3 +267,61 @@ def test_app_status_returns_unknown_for_empty_stdout(monkeypatch):
     )
 
     assert app_status("vjepa2") == "unknown"
+
+
+def test_effective_status_active_and_port_open_is_ready(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "active")
+    monkeypatch.setattr(units_mod, "port_open", lambda host, port, timeout=0.25: True)
+    assert units_mod.effective_status(make_app()) == "ready"
+
+
+def test_effective_status_active_and_port_closed_is_loading(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "active")
+    monkeypatch.setattr(units_mod, "port_open", lambda host, port, timeout=0.25: False)
+    assert units_mod.effective_status(make_app()) == "loading"
+
+
+def test_effective_status_activating_is_loading(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "activating")
+    assert units_mod.effective_status(make_app()) == "loading"
+
+
+def test_effective_status_deactivating_is_stopping(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "deactivating")
+    assert units_mod.effective_status(make_app()) == "stopping"
+
+
+def test_effective_status_inactive_is_stopped(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "inactive")
+    assert units_mod.effective_status(make_app()) == "stopped"
+
+
+def test_effective_status_failed_stays_failed(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "failed")
+    assert units_mod.effective_status(make_app()) == "failed"
+
+
+def test_effective_status_unrecognized_is_unknown(monkeypatch):
+    monkeypatch.setattr(units_mod, "app_status", lambda name: "")
+    assert units_mod.effective_status(make_app()) == "unknown"
+
+
+def test_port_open_true_when_something_is_listening(monkeypatch):
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.bind(("127.0.0.1", 0))
+    server.listen(1)
+    try:
+        host, port = server.getsockname()
+        assert units_mod.port_open(host, port) is True
+    finally:
+        server.close()
+
+
+def test_port_open_false_when_nothing_is_listening():
+    # Bind then immediately close to get a real, currently-unused port.
+    probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    probe.bind(("127.0.0.1", 0))
+    _, port = probe.getsockname()
+    probe.close()
+
+    assert units_mod.port_open("127.0.0.1", port, timeout=0.1) is False

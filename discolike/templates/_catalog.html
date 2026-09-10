@@ -19,7 +19,7 @@
     <div class="card-actions">
       <button class="btn" hx-post="/apps/{{ a.name }}/start" hx-target="#catalog" hx-swap="innerHTML">Start</button>
       <button class="btn" hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
-      {% if a.status == "active" %}
+      {% if a.status == "ready" %}
       <a class="btn btn--open" href="/apps/{{ a.name }}/view" target="_blank">Open ↗</a>
       {% endif %}
     </div>
@@ -27,3 +27,9 @@
   {% endif %}
   {% endfor %}
 </div>
+{% if polling %}
+<!-- Re-fetches the whole catalog while anything is loading/stopping, so a
+     card's badge (and the Open link once a port comes up) updates on its
+     own -- settled catalogs (all ready/stopped/failed/unknown) never poll. -->
+<div hx-get="/catalog" hx-trigger="every 2s" hx-target="#catalog" hx-swap="innerHTML"></div>
+{% endif %}

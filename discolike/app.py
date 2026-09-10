@@ -67,10 +67,16 @@ def create_app() -> FastAPI:
                         "description": entry.description,
                         "port": entry.port,
                         "broken": False,
-                        "status": units.app_status(entry.name),
+                        "status": units.effective_status(entry),
                     }
                 )
         return rows
+
+    def catalog_polling(rows: list[dict]) -> bool:
+        # Only re-trigger the poll while some row is mid-transition -- a
+        # fully settled catalog (all ready/stopped/failed/unknown) has
+        # nothing left to reveal by polling.
+        return any(row.get("status") in ("loading", "stopping") for row in rows)
 
     def find_app(name: str) -> AppManifest | None:
         for entry in discover_apps(scan_root()):
@@ -85,15 +91,23 @@ def create_app() -> FastAPI:
             "name": target.name,
             "description": target.description,
             "port": target.port,
-            "status": units.app_status(target.name),
+            "status": units.effective_status(target),
         }
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request) -> HTMLResponse:
+        rows = catalog_rows()
         return templates.TemplateResponse(
             request,
             "index.html",
-            {"apps": catalog_rows(), "gozer": gozer_status.get_status()},
+            {"apps": rows, "polling": catalog_polling(rows), "gozer": gozer_status.get_status()},
+        )
+
+    @app.get("/catalog", response_class=HTMLResponse)
+    def catalog_fragment(request: Request) -> HTMLResponse:
+        rows = catalog_rows()
+        return templates.TemplateResponse(
+            request, "_catalog.html", {"apps": rows, "polling": catalog_polling(rows)}
         )
 
     @app.get("/gozer-status", response_class=HTMLResponse)
@@ -113,7 +127,7 @@ def create_app() -> FastAPI:
             else:
                 rows = catalog_rows()
         return templates.TemplateResponse(
-            request, "_catalog.html", {"apps": rows}
+            request, "_catalog.html", {"apps": rows, "polling": catalog_polling(rows)}
         )
 
     @app.post("/apps/{name}/stop", response_class=HTMLResponse)
@@ -125,18 +139,31 @@ def create_app() -> FastAPI:
         else:
             rows = catalog_rows()
         return templates.TemplateResponse(
-            request, "_catalog.html", {"apps": rows}
+            request, "_catalog.html", {"apps": rows, "polling": catalog_polling(rows)}
         )
+
+    def view_polling(row: dict) -> bool:
+        return row.get("status") in ("loading", "stopping")
 
     @app.get("/apps/{name}/view", response_class=HTMLResponse)
     def app_view(request: Request, name: str) -> HTMLResponse:
         target = find_app(name)
         if target is None:
             return PlainTextResponse(f"no such app: {name!r}", status_code=404)
+        row = app_view_row(name, target)
         return templates.TemplateResponse(
             request,
             "view.html",
-            {"app": app_view_row(name, target), "gozer": gozer_status.get_status()},
+            {"app": row, "polling": view_polling(row), "gozer": gozer_status.get_status()},
+        )
+
+    @app.get("/apps/{name}/view/status", response_class=HTMLResponse)
+    def app_view_status(request: Request, name: str) -> HTMLResponse:
+        row = app_view_row(name, find_app(name))
+        return templates.TemplateResponse(
+            request,
+            "_app_view.html",
+            {"app": row, "polling": view_polling(row), "error": None},
         )
 
     @app.post("/apps/{name}/view/start", response_class=HTMLResponse)
@@ -147,10 +174,11 @@ def create_app() -> FastAPI:
             result = units.start_app(target)
             if result.returncode != 0:
                 error = result.stderr.strip() or "command failed with no output"
+        row = app_view_row(name, find_app(name))
         return templates.TemplateResponse(
             request,
             "_app_view.html",
-            {"app": app_view_row(name, find_app(name)), "error": error},
+            {"app": row, "polling": view_polling(row), "error": error},
         )
 
     @app.post("/apps/{name}/view/stop", response_class=HTMLResponse)
@@ -159,10 +187,11 @@ def create_app() -> FastAPI:
         error = None
         if result.returncode != 0:
             error = result.stderr.strip() or "command failed with no output"
+        row = app_view_row(name, find_app(name))
         return templates.TemplateResponse(
             request,
             "_app_view.html",
-            {"app": app_view_row(name, find_app(name)), "error": error},
+            {"app": row, "polling": view_polling(row), "error": error},
         )
 
     return app
