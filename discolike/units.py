@@ -2,6 +2,7 @@
 # SPDX-FileCopyrightText: © 2026 Tenstorrent AI ULC
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -9,6 +10,7 @@ from pathlib import Path
 from discolike.manifest import AppManifest
 
 UNIT_DIR = Path.home() / ".config" / "systemd" / "user"
+LOCAL_BIN_DIR = Path.home() / ".local" / "bin"
 
 
 def unit_name(app_name: str) -> str:
@@ -19,12 +21,39 @@ def unit_file_path(app_name: str) -> Path:
     return UNIT_DIR / unit_name(app_name)
 
 
+def resolve_binary(name: str) -> str | None:
+    """Resolve `name` to an absolute path without relying solely on the
+    calling process's own $PATH.
+
+    systemd --user's default PATH excludes ~/.local/bin (where both `gozer`
+    and `tt-smi` actually live on this box) -- that's exactly why
+    build_launch_command below resolves gozer to an absolute path before
+    writing it into a generated unit's ExecStart. But tt-discolike itself
+    now also runs as a systemd --user unit (see the self-manifest), so its
+    own process PATH is just as restricted as any app it launches: a plain
+    `shutil.which(name)` called from *inside* tt-discolike silently returns
+    None here too, not just inside a unit tt-discolike generates for
+    someone else. That broke two things at once the day this was caught:
+    the live gozer status bar (always rendered hidden) and this same
+    gozer/tt-smi resolution for wrapping *other* apps' launch commands
+    (silently falling back to a bare, unresolvable name again -- the
+    original 203/EXEC bug, reintroduced).
+    """
+    found = shutil.which(name)
+    if found:
+        return found
+    fallback = LOCAL_BIN_DIR / name
+    if fallback.is_file() and os.access(fallback, os.X_OK):
+        return str(fallback)
+    return None
+
+
 def gozer_available() -> bool:
-    return shutil.which("gozer") is not None
+    return resolve_binary("gozer") is not None
 
 
 def _resolve_tt_smi() -> str | None:
-    return shutil.which("tt-smi")
+    return resolve_binary("tt-smi")
 
 
 def _resolve_launch(app: AppManifest) -> str:
@@ -47,7 +76,7 @@ def _resolve_launch(app: AppManifest) -> str:
 def build_launch_command(app: AppManifest, use_gozer: bool) -> str:
     launch = _resolve_launch(app)
     if use_gozer and app.chips is not None:
-        gozer_bin = shutil.which("gozer") or "gozer"
+        gozer_bin = resolve_binary("gozer") or "gozer"
         return (
             f'{gozer_bin} run --chips {app.chips} --who "discolike:{app.name}" '
             f'--reason "gradio demo" -- {launch}'

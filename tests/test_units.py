@@ -47,8 +47,40 @@ def test_build_launch_command_with_gozer_and_chips(monkeypatch):
     )
 
 
-def test_build_launch_command_falls_back_to_bare_name_if_which_fails(monkeypatch):
+def test_resolve_binary_prefers_which(monkeypatch, tmp_path):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: "/usr/bin/gozer")
+    monkeypatch.setattr(units_mod, "LOCAL_BIN_DIR", tmp_path)
+    assert units_mod.resolve_binary("gozer") == "/usr/bin/gozer"
+
+
+def test_resolve_binary_falls_back_to_local_bin_when_which_fails(monkeypatch, tmp_path):
+    """Regression test: this is the exact bug that hid the live gozer status bar
+    and silently reintroduced the 203/EXEC bug once tt-discolike itself started
+    running as a systemd --user unit -- shutil.which("gozer") returns None from
+    inside that unit's restricted PATH even though gozer is genuinely installed
+    at ~/.local/bin/gozer. resolve_binary must find it there instead of giving up."""
     monkeypatch.setattr(units_mod.shutil, "which", lambda name: None)
+    monkeypatch.setattr(units_mod, "LOCAL_BIN_DIR", tmp_path)
+    fake_gozer = tmp_path / "gozer"
+    fake_gozer.write_text("#!/bin/sh\n")
+    fake_gozer.chmod(0o755)
+
+    assert units_mod.resolve_binary("gozer") == str(fake_gozer)
+
+
+def test_resolve_binary_returns_none_when_local_bin_entry_not_executable(monkeypatch, tmp_path):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: None)
+    monkeypatch.setattr(units_mod, "LOCAL_BIN_DIR", tmp_path)
+    not_executable = tmp_path / "gozer"
+    not_executable.write_text("#!/bin/sh\n")
+    not_executable.chmod(0o644)
+
+    assert units_mod.resolve_binary("gozer") is None
+
+
+def test_build_launch_command_falls_back_to_bare_name_if_which_fails(monkeypatch, tmp_path):
+    monkeypatch.setattr(units_mod.shutil, "which", lambda name: None)
+    monkeypatch.setattr(units_mod, "LOCAL_BIN_DIR", tmp_path)  # no gozer here either
     app = make_app(chips=1)
     result = build_launch_command(app, use_gozer=True)
     assert result.startswith("gozer run")
@@ -81,9 +113,10 @@ def test_render_unit_file_pins_gozer_reset_cmd_when_tt_smi_resolves(monkeypatch)
     assert content.index("Environment=GOZER_RESET_CMD=") < content.index("ExecStart=")
 
 
-def test_render_unit_file_omits_reset_cmd_when_tt_smi_not_found(monkeypatch):
+def test_render_unit_file_omits_reset_cmd_when_tt_smi_not_found(monkeypatch, tmp_path):
     monkeypatch.setattr(units_mod.shutil, "which",
                         lambda name: "/home/ttuser/.local/bin/gozer" if name == "gozer" else None)
+    monkeypatch.setattr(units_mod, "LOCAL_BIN_DIR", tmp_path)  # no tt-smi here either
     app = make_app(chips=1)
     content = render_unit_file(app, use_gozer=True)
     assert "GOZER_RESET_CMD" not in content
