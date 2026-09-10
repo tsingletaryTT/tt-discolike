@@ -57,6 +57,29 @@ def test_index_excludes_hidden_app_but_view_still_reaches_it(monkeypatch):
     assert "V-JEPA2 demo" in view_response.text
 
 
+def test_index_shows_disabled_open_button_when_not_ready(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "loading")
+
+    client = TestClient(app_mod.create_app())
+    response = client.get("/")
+
+    assert "<button" in response.text
+    assert 'disabled title="Waiting for vjepa2 to accept connections"' in response.text
+    assert 'href="/apps/vjepa2/view"' not in response.text
+
+
+def test_index_shows_live_open_link_when_ready(monkeypatch):
+    monkeypatch.setattr(app_mod, "discover_apps", lambda root: [make_app()])
+    monkeypatch.setattr(app_mod.units, "effective_status", lambda app: "ready")
+
+    client = TestClient(app_mod.create_app())
+    response = client.get("/")
+
+    assert 'href="/apps/vjepa2/view"' in response.text
+    assert 'class="btn btn--open btn--disabled"' not in response.text
+
+
 def test_index_shows_broken_manifest_error(monkeypatch):
     broken = BrokenManifest(
         manifest_path=Path("/home/ttuser/code/broken/.disco/app.yaml"),

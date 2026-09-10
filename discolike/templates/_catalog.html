@@ -21,6 +21,8 @@
       <button class="btn" hx-post="/apps/{{ a.name }}/stop" hx-target="#catalog" hx-swap="innerHTML">Stop</button>
       {% if a.status == "ready" %}
       <a class="btn btn--open" href="/apps/{{ a.name }}/view" target="_blank">Open ↗</a>
+      {% else %}
+      <button class="btn btn--open btn--disabled" disabled title="Waiting for {{ a.name }} to accept connections">Open ↗</button>
       {% endif %}
     </div>
   </div>

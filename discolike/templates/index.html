@@ -89,6 +89,10 @@
       background: rgba(79,209,197,0.08); border-color: rgba(79,209,197,0.3);
     }
     .btn--open:hover { border-color: var(--teal); background: rgba(79,209,197,0.14); }
+    .btn--disabled, .btn--disabled:hover {
+      opacity: 0.35; cursor: not-allowed; color: var(--muted); background: transparent;
+      border-color: var(--bg2);
+    }
 
     .gozer-bar {
       display: flex; align-items: center; gap: 12px; padding: 8px 20px;
